@@ -1,0 +1,527 @@
+---
+title: "Prescription_aggregation"
+author: "Peter B"
+date: "5 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(echo = TRUE)
+opts_knit$set(root.dir = "C:/Users/Peter/Downloads/Data/")
+```
+
+## libraries
+This is the list of libraries used in the exploration
+
+```{r, echo=FALSE}
+rm(list = ls())
+library(dendextend)
+library(feather)
+library(forcats)
+library(lubridate)
+library(scales)
+library(GGally)
+library(cowplot)
+library(Rtsne)
+library(clValid)
+library(scales)
+library(corrplot)
+library(sqldf)
+library(ggplot2)
+library(magrittr)
+library(tidyverse)
+library(reshape2)
+library(lubridate)
+library(e1071)
+library(Deducer)
+library(factoextra)
+library(leaflet)
+library(rgdal)
+library(sp)
+library(maptools)
+library(raster)
+library(RColorBrewer)
+library(readxl)
+library(data.table)
+
+
+```
+
+## Prescription
+
+Lets load in the data and take a look at the data.
+The data has a number of fields:
+ 1. Urn
+ 2. Lsoa
+ 3. Postcode (we can group up at postcode level to oa)
+ 4. postcode population
+ 5. bnf_chapter
+ 6. number_of_prescriptions
+ 7. nic
+ 8. actual_cost
+ 9. month
+
+```{r}
+getwd()
+```
+
+
+
+## Lets read in all the cardio data
+
+```{r, echo=FALSE}
+getwd()
+
+file_names <- dir("./CARDIOVASCULAR") #where you have your files
+
+print(file_names)
+
+Cardio <- do.call(rbind,lapply(paste("./CARDIOVASCULAR/",file_names,sep=""),read_tsv))
+colnames<-NULL
+
+colnames(Cardio)
+
+
+Cardio %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  ) %>% ungroup() -> Cardio_sum_lsoa
+
+
+
+Cardio_sum_lsoa$Drug<-"Cardiovascular"
+
+Cardio<-NULL
+
+```
+
+
+## Lets read in all the CNS data
+
+```{r, echo=FALSE}
+
+##CentralNervousSystem
+
+file_names <- dir("./CentralNervousSystem") #where you have your files
+
+print(file_names)
+
+CentralNervousSystem <- do.call(rbind,lapply(paste("./CentralNervousSystem/",file_names,sep=""),read_tsv))
+
+colnames(CentralNervousSystem)
+
+
+CentralNervousSystem %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> CentralNervousSystem_sum_lsoa
+
+
+
+CentralNervousSystem_sum_lsoa$Drug<-"Central Nervous System"
+
+CentralNervousSystem<-NULL
+
+```
+
+
+## Lets read in all the Ear, Nose and Throat data
+
+
+```{r, echo=FALSE}
+
+##EarNoseandOropharynx
+
+file_names <- dir("./EarNoseandOropharynx") #where you have your files
+
+print(file_names)
+
+EarNoseandOropharynx <- do.call(rbind,lapply(paste("./EarNoseandOropharynx/",file_names,sep=""),read_tsv))
+
+colnames(EarNoseandOropharynx)
+
+
+EarNoseandOropharynx %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> EarNoseandOropharynx_sum_lsoa
+
+
+
+EarNoseandOropharynx_sum_lsoa$Drug<-"Ear, Nose and Oropharynx"
+
+EarNoseandOropharynx<-NULL
+```
+
+## Lets read in all the Ear, Nose and Throat data
+
+```{r, echo=FALSE}
+#EndocrineSystem
+
+file_names <- dir("./EndocrineSystem") #where you have your files
+
+print(file_names)
+
+EndocrineSystem <- do.call(rbind,lapply(paste("./EndocrineSystem/",file_names,sep=""),read_tsv))
+
+colnames(EndocrineSystem)
+
+
+EndocrineSystem %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup()  -> EndocrineSystem_sum_lsoa
+
+
+
+EndocrineSystem_sum_lsoa$Drug<-"Endocrine System"
+
+EndocrineSystem<-NULL
+
+```
+
+## Eye
+
+```{r, echo=FALSE}
+
+file_names <- dir("./Eye") #where you have your files
+
+print(file_names)
+
+Eye <- do.call(rbind,lapply(paste("./Eye/",file_names,sep=""),read_tsv))
+
+colnames(EndocrineSystem)
+
+
+Eye %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> Eye_sum_lsoa
+
+
+
+Eye_sum_lsoa$Drug<-"Eye"
+
+Eye<-NULL
+
+
+```
+
+## Ear, Nose and Oropharynx
+
+```{r, echo=FALSE}
+##EarNoseandOropharynx
+
+file_names <- dir("./EarNoseandOropharynx") #where you have your files
+
+print(file_names)
+
+EarNoseandOropharynx <- do.call(rbind,lapply(paste("./EarNoseandOropharynx/",file_names,sep=""),read_tsv))
+
+colnames(EarNoseandOropharynx)
+
+
+EarNoseandOropharynx %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup()  -> EarNoseandOropharynx_sum_lsoa
+
+
+
+EarNoseandOropharynx_sum_lsoa$Drug<-"Ear, Nose and Oropharynx"
+
+EarNoseandOropharynx<-NULL
+```
+
+## Lets read in all the Gastro Intestinal System data
+
+```{r, echo=FALSE}
+#GastroIntestinalSystem
+
+file_names <- dir("./GastroIntestinalSystem") #where you have your files
+
+print(file_names)
+
+GastroIntestinalSystem <- do.call(rbind,lapply(paste("./GastroIntestinalSystem/",file_names,sep=""),read_tsv))
+
+colnames(GastroIntestinalSystem)
+
+
+GastroIntestinalSystem %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> GastroIntestinalSystem_sum_lsoa
+
+
+
+GastroIntestinalSystem_sum_lsoa$Drug<-"Gastro Intestinal System"
+
+GastroIntestinalSystem<-NULL
+
+```
+ 
+
+
+## Lets read in all the Gastro Intestinal System data
+
+```{r, echo=FALSE}
+#ImmunologicalProductsVaccines
+
+file_names <- dir("./ImmunologicalProductsVaccines") #where you have your files
+
+print(file_names)
+
+ImmunologicalProductsVaccines <- do.call(rbind,lapply(paste("./ImmunologicalProductsVaccines/",file_names,sep=""),read_tsv))
+
+colnames(ImmunologicalProductsVaccines)
+
+
+ImmunologicalProductsVaccines %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> ImmunologicalProductsVaccines_sum_lsoa
+
+
+
+ImmunologicalProductsVaccines_sum_lsoa$Drug<-"Immunological Products Vaccines"
+
+ImmunologicalProductsVaccines<-NULL
+
+```
+ 
+## Infections
+
+```{r,echo=FALSE}
+#Infections
+
+file_names <- dir("./Infections") #where you have your files
+
+print(file_names)
+
+Infections <- do.call(rbind,lapply(paste("./Infections/",file_names,sep=""),read_tsv))
+
+colnames(Infections)
+
+
+Infections %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> Infections_sum_lsoa
+
+
+
+Infections_sum_lsoa$Drug<-"Infections"
+
+Infections<-NULL
+
+
+```
+
+## IncontinenceAppliances
+
+```{r, echo=FALSE}
+#IncontinenceAppliances
+
+file_names <- dir("./IncontinenceAppliances") #where you have your files
+
+print(file_names)
+
+IncontinenceAppliances <- do.call(rbind,lapply(paste("./IncontinenceAppliances/",file_names,sep=""),read_tsv))
+
+colnames(IncontinenceAppliances)
+
+
+IncontinenceAppliances %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> IncontinenceAppliances_sum_lsoa
+
+
+
+IncontinenceAppliances_sum_lsoa$Drug<-"Incontinence Appliances"
+
+IncontinenceAppliances<-NULL
+
+
+```
+
+## ImmunologicalProductsVaccines
+
+```{r, echo=FALSE}
+#ImmunologicalProductsVaccines
+
+file_names <- dir("./ImmunologicalProductsVaccines") #where you have your files
+
+print(file_names)
+
+ImmunologicalProductsVaccines <- do.call(rbind,lapply(paste("./ImmunologicalProductsVaccines/",file_names,sep=""),read_tsv))
+
+colnames(ImmunologicalProductsVaccines)
+
+
+ImmunologicalProductsVaccines %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  )  %>% ungroup() -> ImmunologicalProductsVaccines_sum_lsoa
+
+
+
+ImmunologicalProductsVaccines_sum_lsoa$Drug<-"Immunological Products Vaccines"
+
+ImmunologicalProductsVaccines<-NULL
+
+```
+
+## Malignant Disease Immunosuppression
+
+```{r, echo=FALSE}
+#ImmunologicalProductsVaccines
+
+file_names <- dir("./MalignantDiseaseImmunosuppression") #where you have your files
+
+print(file_names)
+
+MalignantDiseaseImmunosuppression <- do.call(rbind,lapply(paste("./MalignantDiseaseImmunosuppression/",file_names,sep=""),read_tsv))
+
+colnames(MalignantDiseaseImmunosuppression)
+
+
+MalignantDiseaseImmunosuppression %>% dplyr::select(lsoa,month,postcode_population,number_of_prescriptions,nic,actual_cost) %>% group_by(lsoa,month) %>%
+  summarize_all(sum, na.rm=TRUE)  %>% mutate(
+    number_of_prescriptions_std=number_of_prescriptions/postcode_population,
+    nic_std=nic/postcode_population,
+    actual_cost_std=actual_cost/postcode_population
+  ) %>% ungroup() -> MalignantDiseaseImmunosuppression_sum_lsoa
+
+
+
+MalignantDiseaseImmunosuppression_sum_lsoa$Drug<-"MalignantDiseaseImmunosuppression"
+
+MalignantDiseaseImmunosuppression<-NULL
+
+```
+
+
+## Join everything together 
+
+```{r,echo=FALSE}
+
+MalignantDiseaseImmunosuppression_sum_lsoa<-MalignantDiseaseImmunosuppression_sum_lsoa %>% as.data.frame()
+
+ImmunologicalProductsVaccines_sum_lsoa<-ImmunologicalProductsVaccines_sum_lsoa %>% as.data.frame()
+
+IncontinenceAppliances_sum_lsoa<-IncontinenceAppliances_sum_lsoa %>% as.data.frame()
+
+Infections_sum_lsoa<-Infections_sum_lsoa %>% as.data.frame()
+
+GastroIntestinalSystem_sum_lsoa<-GastroIntestinalSystem_sum_lsoa %>% as.data.frame()
+
+EarNoseandOropharynx_sum_lsoa<-EarNoseandOropharynx_sum_lsoa %>% as.data.frame()
+
+EndocrineSystem_sum_lsoa<-EndocrineSystem_sum_lsoa %>% as.data.frame()
+
+CentralNervousSystem_sum_lsoa<-CentralNervousSystem_sum_lsoa %>% as.data.frame()
+
+Cardio_sum_lsoa<-Cardio_sum_lsoa %>% as.data.frame()
+
+my.df.list= list(MalignantDiseaseImmunosuppression_sum_lsoa,
+ImmunologicalProductsVaccines_sum_lsoa,
+IncontinenceAppliances_sum_lsoa,
+Infections_sum_lsoa,
+GastroIntestinalSystem_sum_lsoa,
+EarNoseandOropharynx_sum_lsoa,
+Eye_sum_lsoa,
+EndocrineSystem_sum_lsoa,
+CentralNervousSystem_sum_lsoa,
+Cardio_sum_lsoa
+)
+
+str(my.df.list)
+str(MalignantDiseaseImmunosuppression_sum_lsoa)
+
+
+
+Alldrugsdf <-do.call("rbind", my.df.list)
+
+str(Alldrugsdf)
+unique(Alldrugsdf$Drug)
+feather::write_feather(Alldrugsdf,"alldrugsdf.feather")
+
+
+
+```
+```{r}
+getwd()
+# rm(list=ls())
+
+Alldrugsdf<-feather::read_feather("alldrugsdf.feather")
+
+##colnames(Alldrugsdf)
+##unique(Alldrugsdf$Drug)
+##unique(Alldrugsdf$month)
+
+ukpostcode<-read_csv("ukpostcode_data.csv")
+
+colnames(ukpostcode)
+
+postcode_lookup<-read_csv("postcode_lookup.csv")
+
+lsoa_lookup <- postcode_lookup %>% dplyr::select(lsoa,nuts3,nuts1) %>% as.data.frame() %>% unique()
+
+## nrow(lsoa_lookup)
+## nrow(unique(lsoa_lookup))
+
+## str(lsoa_lookup)
+
+## rm(Alldrugsdf) rm(postcode_lookup) rm(ukpostcode)
+
+alldrugsdf_nuts<-dplyr::inner_join(Alldrugsdf,lsoa_lookup,by="lsoa")
+
+feather::write_feather(alldrugsdf_nuts,"alldrugsdf_nuts.feather")
+
+# alldrugsdf_nuts<-feather::read_feather("alldrugsdf_nuts.feather")
+
+clustereddset<-feather::read_feather("C:\\Users\\Peter\\Downloads\\DoordaOutput\\overalldsetclusterlabelled.feather")
+
+load(file="C:\\Users\\Peter\\Downloads\\DoordaOutput\\hierarchical_clustering_ward_D2_16_02_2018_expanded_inputset.rda")
+
+grp<-cutree(rs.hc.pca10,k=7)
+
+
+grp.df<- grp %>% as.data.frame()
+
+overall_dset_k7<-cbind(clustereddset,grp.df)
+
+clustereddset_alldrugsdf<-dplyr::inner_join(alldrugsdf_nuts,overall_dset_k7,by="lsoa")
+
+colnames(clustereddset_alldrugsdf)[135]<-"cluster"
+
+feather::write_feather(clustereddset_alldrugsdf,"clustereddset_alldrugsdf.feather")
+
+
+
+```
+
